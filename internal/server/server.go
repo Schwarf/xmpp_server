@@ -36,8 +36,8 @@ func StartServer() {
 	}
 }
 
-func handleConnection(conn net.Conn) {
-	defer conn.Close()
+func handleConnection(connection net.Conn) {
+	defer connection.Close()
 
 	serverJID := jid.MustParse("server@localhost")
 	clientJID := jid.MustParse("client@localhost")
@@ -46,16 +46,21 @@ func handleConnection(conn net.Conn) {
 		context.TODO(),
 		serverJID,
 		clientJID,
-		conn,
+		connection,
 	)
 	if err != nil {
 		log.Printf("Failed to create session: %v", err)
 		return
 	}
 
+	const (
+		MessageString  = "message"
+		PresenceString = "presence"
+		IQString       = "iq"
+	)
 	err = session.Serve(xmpp.HandlerFunc(func(t xmlstream.TokenReadEncoder, start *xml.StartElement) error {
 		switch start.Name.Local {
-		case "message":
+		case MessageString:
 			var message Message
 			err := xml.NewTokenDecoder(t).DecodeElement(&message, start)
 			if err != nil {
@@ -70,10 +75,20 @@ func handleConnection(conn net.Conn) {
 				Body: "Echo: " + message.Body,
 			}
 			return session.Send(context.TODO(), reply.Wrap(nil))
-		case "presence":
-			log.Println("Received presence")
-		case "iq":
-			log.Println("Received IgQ")
+		case PresenceString:
+			var pres stanza.Presence
+			err := xml.NewTokenDecoder(t).DecodeElement(&pres, start)
+			if err != nil {
+				return err
+			}
+			log.Printf("Received presence from: %v", pres.From)
+		case IQString:
+			var iq stanza.IQ
+			err := xml.NewTokenDecoder(t).DecodeElement(&iq, start)
+			if err != nil {
+				return err
+			}
+			log.Printf("Received IQ from: %v", iq.From)
 		default:
 			log.Printf("Unknown stanza: %v", start.Name.Local)
 		}
