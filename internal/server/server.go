@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/xml"
 	"log"
-	"net"
-
 	"mellium.im/xmlstream"
 	"mellium.im/xmpp"
 	"mellium.im/xmpp/jid"
 	"mellium.im/xmpp/stanza"
+	"net"
+	"xmpp_server/internal/constants"
 )
 
 type Message struct {
@@ -53,14 +53,9 @@ func handleConnection(connection net.Conn) {
 		return
 	}
 
-	const (
-		MessageString  = "message"
-		PresenceString = "presence"
-		IQString       = "iq"
-	)
 	err = session.Serve(xmpp.HandlerFunc(func(t xmlstream.TokenReadEncoder, start *xml.StartElement) error {
 		switch start.Name.Local {
-		case MessageString:
+		case constants.MessageString:
 			var message Message
 			err := xml.NewTokenDecoder(t).DecodeElement(&message, start)
 			if err != nil {
@@ -75,14 +70,14 @@ func handleConnection(connection net.Conn) {
 				Body: "Echo: " + message.Body,
 			}
 			return session.Send(context.TODO(), reply.Wrap(nil))
-		case PresenceString:
+		case constants.PresenceString:
 			var pres stanza.Presence
 			err := xml.NewTokenDecoder(t).DecodeElement(&pres, start)
 			if err != nil {
 				return err
 			}
 			log.Printf("Received presence from: %v", pres.From)
-		case IQString:
+		case constants.IQString:
 			var iq stanza.IQ
 			err := xml.NewTokenDecoder(t).DecodeElement(&iq, start)
 			if err != nil {
